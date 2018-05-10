@@ -11,14 +11,14 @@ int nvm_add(void *ppool, void *tx, void *ptr, uint64_t len) {
 }
 
 void *nvm_start_tx(void *ppool) {
-  auto pool = (PMEMobjpool*)ppool;
-  if (pmemobj_tx_begin(pool, nullptr, TX_PARAM_NONE) != 0) {
+  auto pool = (pmem::obj::pool_base*)ppool;
+  if (pmemobj_tx_begin(pool->get_handle(), nullptr, TX_PARAM_NONE) != 0) {
     printf("nvm_start_tx: failed ppoll=%p\n", ppool);
     return nullptr;
   }
 //    throw pmem::transaction_error("failed to start transaction");
 
-  printf("nvm_start_tx: ok ppoll=%p\n", ppool);
+//  printf("nvm_start_tx: ok ppoll=%p\n", ppool);
   return nullptr;
 }
 
