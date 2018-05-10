@@ -1,0 +1,6 @@
+[submodule "3rdparty/pmemkv"]
+	path = 3rdparty/pmemkv
+	url = git@github.com:a1exwang/pmemkv.git
+[submodule "3rdparty/pmdk"]
+	path = 3rdparty/pmdk
+	url = git@github.com:a1exwang/pmdk.git
