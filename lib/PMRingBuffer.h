@@ -12,7 +12,7 @@ namespace pragma_nvm{
     char data[0];
 
     char *getDataPtr() { return data; }
-    uint64_t getDataLen() { return len - (uint64_t)&((BufEntry*)nullptr)->data; }
+    uint64_t getDataLen() const { return len - (uint64_t)&((BufEntry*)nullptr)->data; }
     template <typename T>
     T *dataAs() {
       return reinterpret_cast<T*>(data);
@@ -20,13 +20,13 @@ namespace pragma_nvm{
   };
   #pragma pack(pop)
 
-  enum LogStatus {
+  enum RingBufferStatus {
     Idle,
     WritingLogEntry,
     MovingLogTailOffset,
   };
 
-  class LogMeta {
+  class BufMeta {
   public:
     void set(uint64_t head, uint64_t tail, uint64_t st) {
       uint64_t _a[3] = {head, tail, st};
@@ -47,8 +47,8 @@ namespace pragma_nvm{
     PMRingBuffer(uint8_t *buf, uint64_t bufSize)
         :rawBuf(buf),
          bufSize(bufSize),
-         buf((uint8_t*)rawBuf + sizeof(LogMeta)),
-         meta(new (rawBuf) LogMeta()) {
+         buf((uint8_t*)rawBuf + sizeof(BufMeta)),
+         meta(new (rawBuf) BufMeta()) {
     }
     BufEntry *head() {
       return (BufEntry*)(buf+meta->getHeadOff());
@@ -84,7 +84,12 @@ namespace pragma_nvm{
       meta->setHead(meta->getHeadOff() + head()->len);
     }
 
-    BufEntry *enq(BufEntry *log) {
+    const BufEntry *enq(const BufEntry *log) {
+      enq(log->offset, log->data, log->getDataLen());
+      return log;
+    }
+    void enq(uint64_t offset, const void *ptr, uint64_t dataLen) {
+      printf("PMRingBuffer::enq: offset=0x%lx, ptr=%p, len=%ld\n", offset, ptr, dataLen);
       if (meta->getStatus() != Idle) {
         recover();
       }
@@ -94,24 +99,32 @@ namespace pragma_nvm{
       meta->setStatus(WritingLogEntry);
 
       // Maybe non atomic, but it's ok
-      void *curLog = buf + meta->getTailOff();
-      memcpy(curLog, log, log->len);
-      pmem_persist(curLog, log->len);
+      auto *curLog = reinterpret_cast<BufEntry*>(buf + meta->getTailOff());
+      curLog->offset = offset;
+      curLog->len = sizeof(BufEntry) + dataLen;
+      memcpy(curLog->data, ptr, dataLen);
+      pmem_persist(curLog, curLog->len);
 
       // WritingLogEntry -> MovingLogTailOffset
       meta->setStatus(MovingLogTailOffset);
 
       // MovingLogTailOffset -> Idle
       recover();
-      return log;
+
+    }
+
+    bool isEmpty() const {
+      return meta->getHeadOff() == meta->getTailOff();
+    }
+    void reset() {
+      meta->set(0, 0, RingBufferStatus::Idle);
     }
   private:
     uint8_t *rawBuf;
     uint64_t bufSize;
     uint8_t *buf;
-    LogMeta *meta;
+    BufMeta *meta;
   };
-
 }
 
 

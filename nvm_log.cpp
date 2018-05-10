@@ -13,6 +13,7 @@
 #include <iostream>
 #include "pragma_nvm.h"
 #include "lib/PMRingBuffer.h"
+#include "lib/PMTx.h"
 
 
 constexpr const char *POOL_NAME = "/dev/shm/pmdk-simple-test-pmemobj";
@@ -44,8 +45,7 @@ struct Payload {
   char data[32];
 };
 
-int main() {
-
+void ringBufferTest() {
   uint64_t bufSize = 1048576;
   auto *buf = new uint8_t[bufSize];
   PMRingBuffer ringBuffer(buf, bufSize);
@@ -64,6 +64,23 @@ int main() {
 
   cout << "last data: " << ringBuffer.head()->dataAs<Payload>()->data << endl;
   ringBuffer.deq();
+
+  delete [] buf;
+}
+
+int main() {
+  uint64_t bufSize = 1048576;
+  char *pmem = new char[bufSize*2];
+  char *allocBase = pmem + bufSize;
+
+  PMTx tx(pmem+bufSize, bufSize, pmem);
+  tx.recover();
+  tx.start();
+  tx.add_direct(allocBase, 32);
+
+  tx.abort();
+//  tx.commit();
+  delete [] pmem;
 
 //  #pragma clang nvm nvmptr
 //  int *np = pnvm;
