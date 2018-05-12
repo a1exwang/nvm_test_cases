@@ -1,8 +1,11 @@
-extern void TestPMRingBuffer();
-extern void TestPMTx();
+
+#define TestCase(name) \
+extern void Test##name();\
+Test##name()
 
 int main() {
-  TestPMRingBuffer();
-  TestPMTx();
+  TestCase(PMRingBuffer);
+  TestCase(PMTx);
+  TestCase(PMAlloc);
   return 0;
 }

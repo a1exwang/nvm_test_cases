@@ -7,14 +7,18 @@ using namespace std;
 
 void TestPMTx() {
 
-  uint64_t bufSize = 1048576;
-  char *pmem = new char[bufSize*2];
-  char *allocBase = pmem + bufSize;
+  // Must > 1MiB
+  uint64_t bufSize = 1048576 * 4;
+  char *pmem = new char[bufSize];
+  memset(pmem, 0, bufSize);
 
-  PMTx tx(pmem+bufSize, bufSize, pmem);
+  PMPool pool(pmem, bufSize);
+  PMTx tx(&pool);
+
+  void *allocPool = pool.getAllocPool();
   tx.recover();
   tx.start();
-  tx.add_direct(allocBase, 32);
+  tx.addDirect(allocPool, 32);
 
   tx.abort();
 //  tx.commit();
