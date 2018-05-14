@@ -1,4 +1,5 @@
 #pragma once
+#include <stdexcept>
 
 namespace pragma_nvm {
   class PMPool {
@@ -9,20 +10,28 @@ namespace pragma_nvm {
 
     uint64_t offset(void *p) {
       if (p == nullptr) {
+        throw std::runtime_error("nullptr");
         return 0;
       }
       uint64_t off = reinterpret_cast<uint64_t>(p) - reinterpret_cast<uint64_t>(base);
+      if (off > size) {
+        throw std::runtime_error("out of bounds");
+      }
       return off;
     }
     void *direct(uint64_t off) {
       if (off == 0) {
+        throw std::runtime_error("nullptr");
         return nullptr;
+      }
+      if (off > size) {
+        throw std::runtime_error("out of bounds");
       }
       return reinterpret_cast<uint8_t*>(base) + off;
     }
     template <typename T>
     T *directAs(uint64_t off) {
-      return reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(base) + off);
+      return reinterpret_cast<T*>(direct(off));
     }
     void *getTxMetadataBuf() {
       return base;

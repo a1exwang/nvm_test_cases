@@ -35,6 +35,10 @@ namespace pragma_nvm {
     }
 
     void *allocDirect(PMTx *tx) {
+      if (!tx->inTx()) {
+        throw std::runtime_error("not in tx");
+      }
+
       if (freeListHead->next == freeListHead->prev) {
         return nullptr;
       }
@@ -55,6 +59,9 @@ namespace pragma_nvm {
     }
 
     void freeBlock(PMTx *tx, PMBlock *block) {
+      if (!tx->inTx()) {
+        throw std::runtime_error("not in tx");
+      }
       if (objListHead == block) {
         return;
       }
@@ -62,6 +69,11 @@ namespace pragma_nvm {
       listAttachTx(freeListHead, block, tx);
     }
 
+    void *getRootDirect() {
+      return objListHead->data;
+    }
+
+  private:
     void listDetachTx(PMBlock *block, PMTx *tx) {
       auto next = pool->directAs<PMBlock>(block->next);
       auto prev = pool->directAs<PMBlock>(block->prev);
@@ -87,7 +99,8 @@ namespace pragma_nvm {
       head->prev = blockOff;
     }
     void listAttach(PMBlock *head, PMBlock *block) {
-      block->next = pool->offset(head);
+      block->next =
+          pool->offset(head);
       block->prev = head->prev;
 
       auto blockOff = pool->offset(block);
@@ -105,4 +118,6 @@ namespace pragma_nvm {
     PMBlock *objListHead;
   };
 
+  constexpr const uint64_t MaxDataSize = 1024-16;
+  typedef PMBlockAlloc<MaxDataSize> TheAlloc;
 }

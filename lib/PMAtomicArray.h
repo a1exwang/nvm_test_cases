@@ -14,9 +14,13 @@ public:
     return d[currentBuffer][idx];
   }
 
+  void my_persist(void *ptr, uint64_t len) {
+    pmem_msync(ptr, len);
+  }
+
   void set(int idx, T item) {
     d[currentBuffer][idx] = item;
-    pmem_persist(&d[currentBuffer][idx], sizeof(T));
+    my_persist(&d[currentBuffer][idx], sizeof(T));
   }
   void set(T *data, uint64_t n) {
     // First copy data to the other buffer. It may not be atomic.
@@ -24,11 +28,11 @@ public:
     for (int i = 0; i < n; ++i) {
       this->d[nextBuffer][i] = data[i];
     }
-    pmem_persist(this->d[nextBuffer], sizeof(T) * n);
+    my_persist(this->d[nextBuffer], sizeof(T) * n);
 
     // Then swap buffer. This one is atomic
     this->currentBuffer = nextBuffer;
-    pmem_persist(&currentBuffer, sizeof(currentBuffer));
+    my_persist(&currentBuffer, sizeof(currentBuffer));
   }
 
   template <size_t M>

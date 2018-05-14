@@ -6,6 +6,7 @@ SET(CMAKE_C_COMPILER /home/alexwang/dev/proj/cpp/llvm/llvm-git/cmake-build-x86de
 
 include_directories(3rdparty/pmdk/src/include)
 include_directories(lib)
+include_directories(.)
 link_directories(3rdparty/pmdk/src/debug)
 
 ADD_LIBRARY(pragma_nvm_pmdk SHARED pragma_nvm_pmdk.cpp)

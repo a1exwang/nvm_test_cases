@@ -89,7 +89,7 @@ namespace pragma_nvm{
       return log;
     }
     void enq(uint64_t offset, const void *ptr, uint64_t dataLen) {
-      printf("PMRingBuffer::enq: offset=0x%lx, ptr=%p, len=%ld\n", offset, ptr, dataLen);
+//      printf("PMRingBuffer::enq: offset=0x%lx, ptr=%p, len=%ld\n", offset, ptr, dataLen);
       if (meta->getStatus() != Idle) {
         recover();
       }
