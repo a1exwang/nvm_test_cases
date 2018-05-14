@@ -25,6 +25,7 @@ namespace pragma_nvm {
       }
 
     TxResult start() {
+      recover();
       if (getStatus() != TxStatus::Done) {
         return TxResult::Failed;
       }
@@ -35,6 +36,9 @@ namespace pragma_nvm {
 
     void addDirect(void *p, uint64_t len) {
       undoLog.enq(pool->offset(p), p, len);
+    }
+    void add(uint64_t off, uint64_t len) {
+      undoLog.enq(off, pool->direct(off), len);
     }
 
     TxResult commit() {

@@ -8,10 +8,16 @@ namespace pragma_nvm {
     }
 
     uint64_t offset(void *p) {
+      if (p == nullptr) {
+        return 0;
+      }
       uint64_t off = reinterpret_cast<uint64_t>(p) - reinterpret_cast<uint64_t>(base);
       return off;
     }
     void *direct(uint64_t off) {
+      if (off == 0) {
+        return nullptr;
+      }
       return reinterpret_cast<uint8_t*>(base) + off;
     }
     template <typename T>
@@ -26,6 +32,9 @@ namespace pragma_nvm {
 //    }
     void *getAllocPool() {
       return (uint8_t*)base + txMetadataSize;
+    }
+    uint64_t getAllocPoolSize() {
+      return size - txMetadataSize;
     }
     void *setTxMetadata(uint64_t size) {
       txMetadataSize = size;
