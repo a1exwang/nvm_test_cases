@@ -33,13 +33,13 @@ void benchMalloc(const std::string &name, MallocBench *bench) {
     nbytes = blockSize * n;
   });
 
-  benchmark(name + " free", [&](uint64_t &nio, uint64_t &nbytes) -> void {
-    for (int i = 0; i < n; ++i) {
-      bench->free(ptrs[i]);
-    }
-    nio = n;
-    nbytes = blockSize * n;
-  });
+//  benchmark(name + " free", [&](uint64_t &nio, uint64_t &nbytes) -> void {
+//    for (int i = 0; i < n; ++i) {
+//      bench->free(ptrs[i]);
+//    }
+//    nio = n;
+//    nbytes = blockSize * n;
+//  });
   delete []ptrs;
 }
 

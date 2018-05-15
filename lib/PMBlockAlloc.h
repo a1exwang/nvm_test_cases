@@ -2,6 +2,8 @@
 
 #include "PMPool.h"
 #include "PMTx.h"
+#include "PMAtomicArray.h"
+#include <cstdint>
 
 namespace pragma_nvm {
   class PMPool;
@@ -13,6 +15,13 @@ namespace pragma_nvm {
     struct PMBlock {
       uint64_t prev;
       uint64_t next;
+//      PMAtomicArray<uint64_t, 2> _;
+//      uint64_t getPrev() { return _.get(0); }
+//      uint64_t getNext() { return _.get(1); }
+//      uint64_t setPrev(uint64_t prev) { return _.set(0, prev); }
+//      uint64_t setNext(uint64_t next) { return _.set(1, next); }
+//      void set(uint64_t prev, uint64_t next) { _.set({prev, next}); }
+
       char data[Size];
     };
     struct PMLayout {
@@ -83,23 +92,24 @@ namespace pragma_nvm {
       auto next = pool->template directAs<PMBlock>(block->next);
       auto prev = pool->template directAs<PMBlock>(block->prev);
 
-      tx->addDirect(&prev->prev, sizeof(prev->prev));
       tx->addDirect(&prev->next, sizeof(prev->next));
+      tx->addDirect(&next->prev, sizeof(next->prev));
       prev->next = block->next;
       next->prev = block->prev;
     }
 
     void listAttachTx(PMBlock *head, PMBlock *block, PMTx *tx) {
-      tx->addDirect(&block->next, sizeof(block->next));
-      tx->addDirect(&block->prev, sizeof(block->prev));
+      // NOTE: hack for speed
+      tx->addDirect(&block->prev, 2*sizeof(block->prev));
+//      tx->addDirect(&block->next, sizeof(block->next));
       block->next = pool->offset(head);
       block->prev = head->prev;
 
       auto blockOff = pool->offset(block);
       auto tail = pool->template directAs<PMBlock>(head->prev);
 
-      tx->addDirect(&tail->next, sizeof(tail->next));
       tx->addDirect(&head->prev, sizeof(head->prev));
+      tx->addDirect(&tail->next, sizeof(tail->next));
       tail->next = blockOff;
       head->prev = blockOff;
     }

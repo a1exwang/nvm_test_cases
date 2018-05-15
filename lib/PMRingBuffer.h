@@ -22,8 +22,7 @@ namespace pragma_nvm{
 
   enum RingBufferStatus {
     Idle,
-    WritingLogEntry,
-    MovingLogTailOffset,
+    WritingEntry,
   };
 
   class BufMeta {
@@ -44,6 +43,7 @@ namespace pragma_nvm{
 
   class PMRingBuffer {
   public:
+
     PMRingBuffer(uint8_t *buf, uint64_t bufSize)
         :rawBuf(buf),
          bufSize(bufSize),
@@ -57,26 +57,31 @@ namespace pragma_nvm{
       return (BufEntry*)(buf+meta->getTailOff());
     }
 
-    void recover() {
+    void recover(void *base) {
       if (meta->getStatus() == Idle) {
         // do nothing
         return;
       }
       assert(
-          meta->getStatus() == WritingLogEntry ||
-          meta->getStatus() == MovingLogTailOffset
+          meta->getStatus() == WritingEntry
       );
 
-      if (meta->getStatus() == WritingLogEntry) {
+      if (meta->getStatus() == WritingEntry) {
         // log entry partly written, just do nothing, the log is reverted
+        while (meta->getHeadOff() < meta->getTailOff()) {
+          auto *curEntry = reinterpret_cast<BufEntry*>(buf + meta->getHeadOff());
+          rollback(curEntry, base);
+          deq();
+        }
         meta->setStatus(Idle);
-      } else if (meta->getStatus() == MovingLogTailOffset) {
-        auto *curEntry = (BufEntry *) (buf + meta->getTailOff());
-        // After setting the correct offset, the log is successfully appended
-        meta->set(meta->getHeadOff(), meta->getTailOff() + curEntry->len, Idle);
       } else {
         assert(0);
       }
+    }
+
+    void rollback(BufEntry *entry, void *base) {
+      memcpy((char*)base + entry->offset, entry->data, entry->len);
+      PMPersist((char*)base + entry->offset, entry->len);
     }
 
     void deq() {
@@ -90,26 +95,20 @@ namespace pragma_nvm{
     }
     void enq(uint64_t offset, const void *ptr, uint64_t dataLen) {
 //      printf("PMRingBuffer::enq: offset=0x%lx, ptr=%p, len=%ld\n", offset, ptr, dataLen);
-      if (meta->getStatus() != Idle) {
-        recover();
-      }
       assert(meta->getStatus() == Idle);
 
-      // None -> WritingLogEntry
-      meta->setStatus(WritingLogEntry);
+      // None -> WritingEntry
+      meta->setStatus(WritingEntry);
 
       // Maybe non atomic, but it's ok
-      auto *curLog = reinterpret_cast<BufEntry*>(buf + meta->getTailOff());
-      curLog->offset = offset;
-      curLog->len = sizeof(BufEntry) + dataLen;
-      memcpy(curLog->data, ptr, dataLen);
-      pmem_persist(curLog, curLog->len);
+      auto *curEntry = reinterpret_cast<BufEntry*>(buf + meta->getTailOff());
+      curEntry->offset = offset;
+      curEntry->len = sizeof(BufEntry) + dataLen;
+      memcpy(curEntry->data, ptr, dataLen);
+      PMPersist(curEntry, curEntry->len);
 
-      // WritingLogEntry -> MovingLogTailOffset
-      meta->setStatus(MovingLogTailOffset);
-
-      // MovingLogTailOffset -> Idle
-      recover();
+      // WritingEntry -> None
+      meta->set(meta->getHeadOff(), meta->getTailOff() + curEntry->len, Idle);
     }
 
     bool isEmpty() const {

@@ -50,11 +50,11 @@ namespace pragma_nvm {
       _->magicAndSize.set(1, size);
       _->magicAndSize.set(0, PMFileMagic);
     }
-
-  private:
     void *getBase() {
       return &_->magicAndSize;
     }
+
+  private:
     uint64_t getSize() {
       return _->magicAndSize.get(1);
     }

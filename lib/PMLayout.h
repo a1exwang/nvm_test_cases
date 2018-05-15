@@ -17,7 +17,7 @@ namespace pragma_nvm {
 
   class PMLayout {
   public:
-    PMLayout(const std::string &path, uint64_t size) {
+    PMLayout(const std::string &path, uint64_t sizeRequested) {
       struct stat buffer{};
       int status = stat(path.c_str(), &buffer);
       int fd;
@@ -38,7 +38,7 @@ namespace pragma_nvm {
         }
 
         /* allocate the pmem */
-        totalSize = (size*2)/4096 * 4096;
+        totalSize = (sizeRequested*2)/4096 * 4096;
         if ((errno = posix_fallocate(fd, 0, totalSize)) != 0) {
           perror("posix_fallocate");
           throw std::runtime_error("failed to alloc nvm file");
@@ -46,7 +46,7 @@ namespace pragma_nvm {
       }
 
       base = (char*)mmap(nullptr, totalSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-      size = totalSize;
+      this->size = totalSize;
       if (base == MAP_FAILED) {
         perror("mmap");
         throw std::runtime_error("failed to mmap file");
@@ -72,7 +72,14 @@ namespace pragma_nvm {
       }
     }
     ~PMLayout() {
-      munmap(base, size);
+      delete theAlloc;
+      delete tx;
+      delete pool;
+      int status = munmap(base, size);
+      if (status < 0) {
+        perror("munmap");
+        abort();
+      }
     }
 
     TheAlloc *getAlloc() { return theAlloc; }

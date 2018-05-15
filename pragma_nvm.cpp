@@ -27,7 +27,6 @@ bool nvm_init(const char *path, uint64_t size) {
 
 void nvm_deinit() {
   delete layout;
-
 }
 
 void *nvm_get_pool() {

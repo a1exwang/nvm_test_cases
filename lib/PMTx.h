@@ -1,6 +1,7 @@
 #pragma once
 #include "PMRingBuffer.h"
 #include "PMPool.h"
+#include "PM.h"
 
 namespace pragma_nvm {
   enum TxStatus {
@@ -85,7 +86,7 @@ namespace pragma_nvm {
       }
 
       // First recover the ring buffer
-      undoLog.recover();
+      undoLog.recover(pool->getBase());
       applyUndoLogs();
       setStatus(TxStatus::Done);
     }
@@ -111,7 +112,7 @@ namespace pragma_nvm {
     void applyUndoLog(BufEntry *logEntry) {
       auto *dst = pool->directAs<uint8_t>(logEntry->offset);
       memcpy(dst, logEntry->data, logEntry->getDataLen());
-      pmem_persist(dst, logEntry->getDataLen());
+      PMPersist(dst, logEntry->getDataLen());
     }
 
     TxStatus getStatus() {
