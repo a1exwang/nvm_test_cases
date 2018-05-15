@@ -110,12 +110,12 @@ namespace pragma_nvm{
 
       // MovingLogTailOffset -> Idle
       recover();
-
     }
 
     bool isEmpty() const {
       return meta->getHeadOff() == meta->getTailOff();
     }
+
     void reset() {
       meta->set(0, 0, RingBufferStatus::Idle);
     }

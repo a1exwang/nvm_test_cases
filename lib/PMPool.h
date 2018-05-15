@@ -1,57 +1,64 @@
 #pragma once
 #include <stdexcept>
+#include "PMAtomicArray.h"
 
 namespace pragma_nvm {
+  struct PMTx;
+
+  constexpr const uint64_t PMFileMagic = 0xdeadbeefabcdef01;
   class PMPool {
   public:
-    PMPool(void *base, uint64_t size)
-        :base(base), size(size) {
-    }
+
+    struct PMLayout {
+      PMAtomicArray<uint64_t, 2> magicAndSize;
+    };
+
+    PMPool(PMLayout *_):_(_) {}
 
     uint64_t offset(void *p) {
       if (p == nullptr) {
-        throw std::runtime_error("nullptr");
+//        throw std::runtime_error("nullptr");
         return 0;
       }
-      uint64_t off = reinterpret_cast<uint64_t>(p) - reinterpret_cast<uint64_t>(base);
-      if (off > size) {
+      uint64_t off = reinterpret_cast<uint64_t>(p) - reinterpret_cast<uint64_t>(getBase());
+      if (off > getSize()) {
         throw std::runtime_error("out of bounds");
       }
       return off;
     }
     void *direct(uint64_t off) {
       if (off == 0) {
-        throw std::runtime_error("nullptr");
+//        throw std::runtime_error("nullptr");
         return nullptr;
       }
-      if (off > size) {
+      if (off > getSize()) {
         throw std::runtime_error("out of bounds");
       }
-      return reinterpret_cast<uint8_t*>(base) + off;
+      return reinterpret_cast<uint8_t*>(getBase()) + off;
     }
+
     template <typename T>
     T *directAs(uint64_t off) {
       return reinterpret_cast<T*>(direct(off));
     }
-    void *getTxMetadataBuf() {
-      return base;
+
+    bool isInitialized() {
+      return _->magicAndSize.get(0) == PMFileMagic;
     }
-//    uint64_t getTxMetadataSize() {
-//      return txMetadataSize;
-//    }
-    void *getAllocPool() {
-      return (uint8_t*)base + txMetadataSize;
+
+    void setInitialized(uint64_t size) {
+      _->magicAndSize.set(1, size);
+      _->magicAndSize.set(0, PMFileMagic);
     }
-    uint64_t getAllocPoolSize() {
-      return size - txMetadataSize;
-    }
-    void *setTxMetadata(uint64_t size) {
-      txMetadataSize = size;
-      return base;
-    }
+
   private:
-    void *base;
-    uint64_t size;
+    void *getBase() {
+      return &_->magicAndSize;
+    }
+    uint64_t getSize() {
+      return _->magicAndSize.get(1);
+    }
+    PMLayout *_;
     uint64_t txMetadataSize;
   };
 }

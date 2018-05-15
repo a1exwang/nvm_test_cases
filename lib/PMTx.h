@@ -1,6 +1,5 @@
 #pragma once
 #include "PMRingBuffer.h"
-#include "PMAtomicArray.h"
 #include "PMPool.h"
 
 namespace pragma_nvm {
@@ -15,15 +14,19 @@ namespace pragma_nvm {
   };
 
   constexpr const uint64_t LogBufferSize = 1048576; // 1MiB
-  constexpr const uint64_t PMFileMagic = 0x22463110241abcd;
 
+  class PMPool;
   class PMTx {
   public:
-    explicit PMTx(PMPool *pool)
-        :_((decltype(_))pool->setTxMetadata(sizeof(*_))),
-         pool(pool),
-         undoLog((uint8_t*) _->logBuffer, LogBufferSize) {
-      }
+    // PM area
+    struct PMLayout {
+      PMAtomicArray<uint64_t, 1> status;
+      char logBuffer[LogBufferSize];
+      char _pad[951400 + 97152]; // allign to 2MiB
+    };
+  public:
+    explicit PMTx(PMPool *pool, PMLayout *_)
+        :_(_), pool(pool), undoLog((uint8_t*)_->logBuffer, sizeof(PMLayout)) {}
 
     TxResult start() {
       recover();
@@ -39,6 +42,14 @@ namespace pragma_nvm {
       if (!inTx()) {
         throw std::runtime_error("not in tx");
       }
+      undoLog.enq(pool->offset(p), p, len);
+    }
+    void tryAddDirect(void *p, uint64_t len) {
+      if (!inTx()) {
+        return;
+      }
+      if (p == nullptr)
+        return;
       undoLog.enq(pool->offset(p), p, len);
     }
     void add(uint64_t off, uint64_t len) {
@@ -83,12 +94,11 @@ namespace pragma_nvm {
       return getStatus() == TxStatus::UserWorking;
     }
 
-    bool isInitialized() {
-      return this->_->status.get(0) == PMFileMagic;
+    void reinit() {
+      setStatus(TxStatus::Done);
+      undoLog.reset();
     }
-    void setInitialized() {
-      this->_->status.set(0, PMFileMagic);
-    }
+
   private:
 
     void applyUndoLogs() {
@@ -100,26 +110,21 @@ namespace pragma_nvm {
     }
     void applyUndoLog(BufEntry *logEntry) {
       auto *dst = pool->directAs<uint8_t>(logEntry->offset);
-//      printf("PMTx::applyUndoLog: offset=0x%lx, len=%ld, target=%p\n",logEntry->offset, logEntry->getDataLen(), (void*)dst);
       memcpy(dst, logEntry->data, logEntry->getDataLen());
       pmem_persist(dst, logEntry->getDataLen());
     }
 
     TxStatus getStatus() {
-      return (TxStatus)_->status.get(1);
+      return (TxStatus)_->status.get(0);
     }
     void setStatus(TxStatus s) {
-      _->status.set(1, s);
+      _->status.set(0, s);
     }
+
   private:
-    // PM area
-    struct _ano {
-      PMAtomicArray<uint64_t, 2> status;
-      char logBuffer[LogBufferSize] = {0};
-      char _pad[951400 + 97152]; // allign to 2MiB
-    } *_;
     // VM area
-    PMPool *pool;
+    PMLayout *_;
     PMRingBuffer undoLog;
+    PMPool *pool;
   };
 }

@@ -1,8 +1,10 @@
 #pragma once
 
+#include "PMPool.h"
 #include "PMTx.h"
 
 namespace pragma_nvm {
+  class PMPool;
 
   template <uint64_t Size>
   class PMBlockAlloc {
@@ -13,24 +15,26 @@ namespace pragma_nvm {
       uint64_t next;
       char data[Size];
     };
+    struct PMLayout {
+      PMBlock freeListHead;
+      PMBlock objListHead;
+      char allocPool[0];
+    };
 
-    explicit PMBlockAlloc(PMPool *pool)
-        :pool(pool),
-         freeListHead((PMBlock*)pool->getAllocPool()),
-         objListHead((PMBlock*)pool->getAllocPool()+1) {}
+    PMBlockAlloc(PMPool *pool, PMLayout *_, uint64_t allocPoolSize)
+        :pool(pool), _(_), allocPoolSize(allocPoolSize) { }
 
     void reinit() {
-      void *allocPool = pool->getAllocPool();
       // First three blocks for freeListHead and objListHead;
-      uint64_t blockCount = (pool->getAllocPoolSize()-2*sizeof(PMBlock)) / sizeof(PMBlock);
-      memset(allocPool, 0, 2*sizeof(PMBlock));
+      uint64_t blockCount = (allocPoolSize-2*sizeof(PMBlock)) / sizeof(PMBlock);
+      memset(_->allocPool, 0, 2*sizeof(PMBlock));
 
-      objListHead->prev = objListHead->next = pool->offset(objListHead);
-      freeListHead->prev = freeListHead->next = pool->offset(freeListHead);
+      _->objListHead.prev = _->objListHead.next = pool->offset(&_->objListHead);
+      _->freeListHead.prev = _->freeListHead.next = pool->offset(&_->freeListHead);
 
       for (int i = 0; i < blockCount; ++i) {
-        PMBlock *block = (PMBlock*)allocPool + 2 + i;
-        listAttach(freeListHead, block);
+        PMBlock *block = (PMBlock*)_->allocPool + 2 + i;
+        listAttach(&_->freeListHead, block);
       }
     }
 
@@ -39,14 +43,15 @@ namespace pragma_nvm {
         throw std::runtime_error("not in tx");
       }
 
-      if (freeListHead->next == freeListHead->prev) {
+      if (_->freeListHead.next == _->freeListHead.prev) {
         return nullptr;
       }
 
-      PMBlock *tailBlock = pool->directAs<PMBlock>(freeListHead->prev);
-      listDetachTx(tailBlock, tx);
-      listAttachTx(objListHead, tailBlock, tx);
-      return tailBlock->data;
+      PMBlock *targetBlock = pool->template directAs<PMBlock>(_->freeListHead.prev);
+
+      listDetachTx(targetBlock, tx);
+      listAttachTx(&_->objListHead, targetBlock, tx);
+      return targetBlock->data;
     }
 
     template <typename T>
@@ -62,21 +67,21 @@ namespace pragma_nvm {
       if (!tx->inTx()) {
         throw std::runtime_error("not in tx");
       }
-      if (objListHead == block) {
+      if (&_->objListHead == block) {
         return;
       }
       listDetachTx(block, tx);
-      listAttachTx(freeListHead, block, tx);
+      listAttachTx(&_->freeListHead, block, tx);
     }
 
     void *getRootDirect() {
-      return objListHead->data;
+      return _->objListHead.data;
     }
 
   private:
     void listDetachTx(PMBlock *block, PMTx *tx) {
-      auto next = pool->directAs<PMBlock>(block->next);
-      auto prev = pool->directAs<PMBlock>(block->prev);
+      auto next = pool->template directAs<PMBlock>(block->next);
+      auto prev = pool->template directAs<PMBlock>(block->prev);
 
       tx->addDirect(&prev->prev, sizeof(prev->prev));
       tx->addDirect(&prev->next, sizeof(prev->next));
@@ -91,7 +96,7 @@ namespace pragma_nvm {
       block->prev = head->prev;
 
       auto blockOff = pool->offset(block);
-      auto tail = pool->directAs<PMBlock>(head->prev);
+      auto tail = pool->template directAs<PMBlock>(head->prev);
 
       tx->addDirect(&tail->next, sizeof(tail->next));
       tx->addDirect(&head->prev, sizeof(head->prev));
@@ -104,7 +109,7 @@ namespace pragma_nvm {
       block->prev = head->prev;
 
       auto blockOff = pool->offset(block);
-      auto tail = pool->directAs<PMBlock>(head->prev);
+      auto tail = pool->template directAs<PMBlock>(head->prev);
       tail->next = blockOff;
       head->prev = blockOff;
     }
@@ -112,12 +117,13 @@ namespace pragma_nvm {
     PMBlock *getBlockByDataPtr(void *data) {
       return reinterpret_cast<PMBlock*>((char*)data - (uint64_t)((PMBlock*)nullptr)->data);
     }
+
   private:
     PMPool *pool;
-    PMBlock *freeListHead;
-    PMBlock *objListHead;
+    PMLayout *_;
+    uint64_t allocPoolSize;
   };
-
-  constexpr const uint64_t MaxDataSize = 1024-16;
+  constexpr const uint64_t MaxDataSize = 392;
   typedef PMBlockAlloc<MaxDataSize> TheAlloc;
+
 }
