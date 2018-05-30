@@ -29,3 +29,4 @@ TARGET_LINK_LIBRARIES(benchMalloc pmemobj pmem)
 
 ADD_EXECUTABLE(benchSPS bench/sps.cpp)
 TARGET_LINK_LIBRARIES(benchSPS pmemobj pmem pragma_nvm)
+set_source_files_properties(bench/sps.cpp PROPERTIES COMPILE_FLAGS "-Xclang -pragma-nvm-enable-opt")
