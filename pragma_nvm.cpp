@@ -44,7 +44,8 @@ void *nvm_get_alloc() {
 }
 
 int nvm_add(void *ppool, void *_tx, void *ptr, uint64_t len) {
-//  printf("nvm_add: start, ptr=%p, len=%ld\n", ptr, len);
+  bool isNvm = layout->getPool()->isNvmPtr(ptr);
+//  printf("nvm_add: start, isNvm=%d, ptr=%p, len=%ld\n", isNvm, ptr, len);
 //  printf("nvm_add: end, ptr=%p, len=%ld\n", ptr, len);
   if (!layout->getPool()->isNvmPtr(ptr)) {
     pragma_nvm::PMPersist(ptr, len);
@@ -68,5 +69,9 @@ int nvm_commit(void *ppool, void *_tx) {
   layout->getTx()->commit();
 //  printf("nvm_commit: ppoll=%p, tx=%p\n", ppool, _tx);
   return 0;
+}
+
+void *nvm_get_layout() {
+  return layout;
 }
 
