@@ -26,3 +26,6 @@ ADD_SUBDIRECTORY(3rdparty/pmemkv)
 
 ADD_EXECUTABLE(benchMalloc bench/mallocBench.cpp bench/mallocBench.h)
 TARGET_LINK_LIBRARIES(benchMalloc pmemobj pmem)
+
+ADD_EXECUTABLE(benchSPS bench/sps.cpp)
+TARGET_LINK_LIBRARIES(benchSPS pmemobj pmem pragma_nvm)

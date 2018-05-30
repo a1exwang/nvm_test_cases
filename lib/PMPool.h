@@ -15,13 +15,21 @@ namespace pragma_nvm {
 
     PMPool(PMLayout *_):_(_) {}
 
+    bool isNvmPtr(void *p) {
+      if (p == nullptr) {
+        return false;
+      }
+      uint64_t off = reinterpret_cast<uint64_t>(p) - reinterpret_cast<uint64_t>(getBase());
+      return off < getSize();
+    }
+
     uint64_t offset(void *p) {
       if (p == nullptr) {
 //        throw std::runtime_error("nullptr");
         return 0;
       }
       uint64_t off = reinterpret_cast<uint64_t>(p) - reinterpret_cast<uint64_t>(getBase());
-      if (off > getSize()) {
+      if (off >= getSize()) {
         throw std::runtime_error("out of bounds");
       }
       return off;
@@ -31,7 +39,7 @@ namespace pragma_nvm {
 //        throw std::runtime_error("nullptr");
         return nullptr;
       }
-      if (off > getSize()) {
+      if (off >= getSize()) {
         throw std::runtime_error("out of bounds");
       }
       return reinterpret_cast<uint8_t*>(getBase()) + off;

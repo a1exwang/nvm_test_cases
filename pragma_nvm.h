@@ -3,7 +3,7 @@
 #include <string>
 
 extern "C" {
-bool nvm_init(const char *path, uint64_t size);
+bool nvm_init(const char *path, uint64_t *size);
 void nvm_deinit();
 void *nvm_get_pool();
 void *nvm_get_tx();

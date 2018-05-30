@@ -7,6 +7,7 @@
 #include "PMTx.h"
 #include "PMBlockAlloc.h"
 #include <libpmem.h>
+#include <chrono>
 #include "PMLayout.h"
 
 
@@ -20,8 +21,9 @@ void *nvm_get_root() {
 //  return layout->getAlloc();
 }
 
-bool nvm_init(const char *path, uint64_t size) {
-  layout = new PMLayout(path, size);
+bool nvm_init(const char *path, uint64_t *size) {
+  layout = new PMLayout(path, *size);
+  *size = layout->getSize();
   return true;
 }
 
@@ -42,9 +44,17 @@ void *nvm_get_alloc() {
 }
 
 int nvm_add(void *ppool, void *_tx, void *ptr, uint64_t len) {
-//  printf("nvm_add: start %p, tx=%p, ptr=%p, len=%ld\n", ppool, tx, ptr, len);
-//  printf("nvm_add: end %p, tx=%p, ptr=%p, len=%ld\n", ppool, tx, ptr, len);
-  layout->getTx()->addDirect(ptr, len);
+//  printf("nvm_add: start, ptr=%p, len=%ld\n", ptr, len);
+//  printf("nvm_add: end, ptr=%p, len=%ld\n", ptr, len);
+  if (!layout->getPool()->isNvmPtr(ptr)) {
+    pragma_nvm::PMPersist(ptr, len);
+  } else {
+    layout->getTx()->addDirect(ptr, len);
+  }
+//  auto base = layout->getPool()->offset(ptr);
+//  using namespace std::chrono;
+//  std::chrono::milliseconds ms = duration_cast<std::chrono::milliseconds>(system_clock::now().time_since_epoch());
+//  printf("x %ld %ld %ld\n", ms.count(), base, len);
   return 0;
 }
 

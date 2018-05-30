@@ -85,6 +85,8 @@ namespace pragma_nvm {
     TheAlloc *getAlloc() { return theAlloc; }
     PMPool *getPool() { return pool; }
     PMTx *getTx() { return tx; }
+
+    uint64_t getSize() { return size; }
   private:
     PMPoolLayout *getLayout() {
       return (PMPoolLayout*)base;
