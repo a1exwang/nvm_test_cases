@@ -133,7 +133,7 @@ namespace pragma_nvm {
     PMLayout *_;
     uint64_t allocPoolSize;
   };
-  constexpr const uint64_t MaxDataSize = 392;
+  constexpr const uint64_t MaxDataSize = 1000-16;
   typedef PMBlockAlloc<MaxDataSize> TheAlloc;
 
 }
